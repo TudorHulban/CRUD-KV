@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -35,15 +36,34 @@ var _status = map[uint8]string{
 }
 
 func (e Event) String() string {
-	var res []string
+	res := []string{}
 
 	res = append(res, fmt.Sprintf("ID: %d", e.ID))
 	res = append(res, fmt.Sprintf("Title: %s", e.Title))
 	res = append(res, fmt.Sprintf("Content: %s", e.Content))
 	res = append(res, fmt.Sprintf("Valid to: %s", time.Unix(e.ValidTo, 0)))
-	res = append(res, fmt.Sprintf("STatus: %s", _status[e.Status]))
+	res = append(res, fmt.Sprintf("Status: %s", _status[e.Status]))
 
 	return strings.Join(res, "\n")
+}
+
+// MarshalJSON provides custom marshalling, also avoiding memory allignment issues.
+func (e Event) MarshalJSON() ([]byte, error) {
+	event := struct {
+		ID      uint64 `json:"id"`
+		Title   string `json:"title"`
+		Content string `json:"content"`
+		Status  uint8  `json:"status"`
+		ValidTo int64  `json:"validto"`
+	}{
+		ID:      e.ID,
+		Title:   e.Title,
+		Content: e.Content,
+		Status:  e.Status,
+		ValidTo: e.ValidTo,
+	}
+
+	return json.Marshal(&event)
 }
 
 func NewEvent() *Event {
