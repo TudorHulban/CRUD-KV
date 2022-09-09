@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/TudorHulban/CRUD-KV/domain/event"
+	"github.com/TudorHulban/CRUD-KV/infra/repository"
 	"github.com/TudorHulban/kv"
 	badger "github.com/TudorHulban/kvbadger"
 	"github.com/TudorHulban/log"
@@ -13,7 +14,7 @@ type BadgerEvent struct {
 	store badger.BStore
 }
 
-var _ event.IRepositoryEvent = &BadgerEvent{}
+var _ repository.IRepositoryEvent = &BadgerEvent{}
 
 func NewBadgerEvent(logger *log.Logger) (*BadgerEvent, error) {
 	store, errNew := badger.NewBStoreInMem(logger)
@@ -26,7 +27,7 @@ func NewBadgerEvent(logger *log.Logger) (*BadgerEvent, error) {
 	}, nil
 }
 
-func (b *BadgerEvent) Create(event *event.Event) (uint64, error) {
+func (b *BadgerEvent) Insert(event *event.Event) (uint64, error) {
 	eventEncoded, errEnc := Encode(event.EventData)
 	if errEnc != nil {
 		return 0, errEnc
@@ -43,26 +44,6 @@ func (b *BadgerEvent) Create(event *event.Event) (uint64, error) {
 	}
 
 	return event.ID, nil
-}
-
-// Read would return a key not found error if key is missing.
-func (b *BadgerEvent) Read(id uint64) (*event.Event, error) {
-	eventEncoded, errGet := b.store.GetVByK([]byte(fmt.Sprintf("%d", id)))
-	if errGet != nil {
-		return nil, errGet
-	}
-
-	var data event.EventData
-
-	errDec := Decode(eventEncoded, &data)
-	if errDec != nil {
-		return nil, errDec
-	}
-
-	return &event.Event{
-		ID:        id,
-		EventData: data,
-	}, nil
 }
 
 func (b *BadgerEvent) Update(event *event.Event) (uint64, error) {
@@ -86,9 +67,21 @@ func (b *BadgerEvent) Update(event *event.Event) (uint64, error) {
 		return 0, errSet
 	}
 
+	go func() {
+		cacheLRU := getCachesForObjectsMethods()["FindByID"]
+
+		cacheLRU.Put(event.ID, event.EventData)
+	}()
+
 	return event.ID, nil
 }
 
 func (b *BadgerEvent) Delete(id uint64) error {
+	go func() {
+		cacheLRU := getCachesForObjectsMethods()["FindByID"]
+
+		cacheLRU.Delete(id)
+	}()
+
 	return b.store.DeleteKVByK([]byte(fmt.Sprintf("%d", id)))
 }

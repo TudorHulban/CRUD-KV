@@ -20,10 +20,16 @@ type EventData struct {
 type Event struct {
 	EventData
 
-	ID uint64 `json:"id"`
+	FetchedFrom string
+	ID          uint64 `json:"id"`
 }
 
 const _secondsValidity = 1800
+
+var FetchedFrom = map[int]string{
+	0: "cache",
+	1: "persistance",
+}
 
 var _status = map[uint8]string{
 	0: "draft",
@@ -35,6 +41,7 @@ func (e Event) String() string {
 	res := []string{}
 
 	res = append(res, fmt.Sprintf("ID: %d", e.ID))
+	res = append(res, fmt.Sprintf("Fetched From: %s", e.FetchedFrom))
 	res = append(res, fmt.Sprintf("Title: %s", e.Title))
 	res = append(res, fmt.Sprintf("Content: %s", e.Content))
 	res = append(res, fmt.Sprintf("Valid to: %s", time.Unix(e.ValidTo, 0)))
