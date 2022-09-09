@@ -11,9 +11,6 @@ var _cachesForMethods map[string]*lru.CacheLRU
 
 var _cacheConfigObjects = []lru.CfgCache{
 	{Name: "FindByID", Capacity: 10},
-	{Name: "FindByIDs", Capacity: 10},
-	{Name: "FindByName", Capacity: 10},
-	{Name: "FindByNames", Capacity: 10},
 }
 
 func getCachesForObjectsMethods() map[string]*lru.CacheLRU {
@@ -73,13 +70,27 @@ func (b *BadgerEvent) FindByID(id uint64) (*event.Event, error) {
 func (b *BadgerEvent) FindByIDs(ids ...uint64) ([]*event.Event, error) {
 	var res []*event.Event
 
+	cacheLRU := getCachesForObjectsMethods()["FindByID"]
+
 	for _, id := range ids {
+		objectLRU := cacheLRU.Get(id)
+		if objectLRU != nil {
+			obj := objectLRU.(*event.Event)
+			obj.FetchedFrom = event.FetchedFrom[0]
+
+			res = append(res, obj)
+
+			continue
+		}
+
 		ev, errFind := b.FindByID(id)
 		if errFind != nil {
 			fmt.Println(errFind)
 
 			continue
 		}
+
+		ev.FetchedFrom = event.FetchedFrom[1]
 
 		res = append(res, ev)
 	}
